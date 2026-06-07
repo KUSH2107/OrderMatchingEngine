@@ -5,15 +5,18 @@ namespace WebApplication1.Services
 
     /// <summary>
     /// Command processor for the order matching engine.
-    /// Supports: NEW, CANCEL, MODIFY, PRINT commands.
+    /// Supports: NEW, CANCEL, MODIFY, PRINT, FILL, PRICE commands.
     /// </summary>
     public class OrderMatchingEngine
     {
         private readonly OrderBook _orderBook;
+        private readonly PositionTracker _positionTracker;
+        private decimal _currentMarketPrice = 100m;
 
         public OrderMatchingEngine()
         {
             _orderBook = new OrderBook();
+            _positionTracker = new PositionTracker();
         }
 
         public List<Fill> ProcessCommand(string command)
@@ -27,6 +30,8 @@ namespace WebApplication1.Services
                 "NEW" => HandleNewOrder(parts),
                 "CANCEL" => HandleCancelOrder(parts),
                 "MODIFY" => HandleModifyOrder(parts),
+                "FILL" => HandleFill(parts),
+                "PRICE" => HandlePrice(parts),
                 "PRINT" => HandlePrint(parts),
                 _ => throw new ArgumentException($"Unknown command: {parts[0]}")
             };
@@ -46,7 +51,15 @@ namespace WebApplication1.Services
                 throw new ArgumentException("Quantity must be a positive number");
 
             var order = new Order(orderId, side, price, quantity);
-            return _orderBook.AddOrder(order);
+            var fills = _orderBook.AddOrder(order);
+
+            // Process fills through PositionTracker
+            foreach (var fill in fills)
+            {
+                _positionTracker.ProcessFill(fill, OrderSide.BUY);
+            }
+
+            return fills;
         }
 
         private List<Fill> HandleCancelOrder(string[] parts)
@@ -102,6 +115,51 @@ namespace WebApplication1.Services
             return new List<Fill>();
         }
 
+        private List<Fill> HandleFill(string[] parts)
+        {
+            // FILL <BuyOrderId> <SellOrderId> <Price> <Quantity>
+            if (parts.Length != 5)
+                throw new ArgumentException("FILL command requires: FILL <BuyOrderId> <SellOrderId> <Price> <Quantity>");
+
+            var buyOrderId = parts[1];
+            var sellOrderId = parts[2];
+            if (!decimal.TryParse(parts[3], out var price) || price <= 0)
+                throw new ArgumentException("Price must be a positive number");
+            if (!long.TryParse(parts[4], out var quantity) || quantity <= 0)
+                throw new ArgumentException("Quantity must be a positive number");
+
+            // Verify both orders exist
+            var buyOrder = _orderBook.GetOrder(buyOrderId);
+            var sellOrder = _orderBook.GetOrder(sellOrderId);
+
+            if (buyOrder == null)
+                throw new ArgumentException($"Buy order {buyOrderId} not found");
+            if (sellOrder == null)
+                throw new ArgumentException($"Sell order {sellOrderId} not found");
+
+            // Create and process fill
+            var fill = new Fill(buyOrderId, sellOrderId, price, quantity);
+            _positionTracker.ProcessFill(fill, OrderSide.BUY);
+
+            return new List<Fill> { fill };
+        }
+
+        private List<Fill> HandlePrice(string[] parts)
+        {
+            // PRICE <CurrentPrice>
+            if (parts.Length != 2)
+                throw new ArgumentException("PRICE command requires: PRICE <CurrentPrice>");
+
+            if (!decimal.TryParse(parts[1], out var price) || price <= 0)
+                throw new ArgumentException("Price must be a positive number");
+
+            _currentMarketPrice = price;
+            return new List<Fill>();
+        }
+
         public OrderBook GetOrderBook() => _orderBook;
+        public PositionTracker GetPositionTracker() => _positionTracker;
+        public decimal GetCurrentMarketPrice() => _currentMarketPrice;
+        public void SetCurrentMarketPrice(decimal price) => _currentMarketPrice = price;
     }
 }

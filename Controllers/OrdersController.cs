@@ -75,22 +75,99 @@ namespace WebApplication1.Controllers
             }
         }
 
-        [HttpGet("order/{orderId}")]
-        public IActionResult GetOrder(string orderId)
+        [HttpGet("position")]
+        public IActionResult GetPosition()
         {
             try
             {
-                var order = _engine.GetOrderBook().GetOrder(orderId);
-                if (order == null)
-                    return NotFound(new { error = "Order not found" });
+                var tracker = _engine.GetPositionTracker();
+                var currentPrice = _engine.GetCurrentMarketPrice();
+                var unrealizedPnL = tracker.CalculateUnrealizedPnL(currentPrice);
+                var totalPnL = tracker.CalculateTotalPnL(currentPrice);
 
-                return Ok(new { order.OrderId, order.Side, order.Price, order.Quantity, order.FilledQuantity, order.RemainingQuantity, order.Timestamp });
+                return Ok(new
+                {
+                    netQty = tracker.NetQty,
+                    avgPrice = tracker.AvgPrice,
+                    realizedPnL = tracker.RealizedPnL,
+                    unrealizedPnL = unrealizedPnL,
+                    totalPnL = totalPnL,
+                    currentPrice = currentPrice
+                });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { success = false, error = ex.Message });
             }
         }
+
+        [HttpPost("fill")]
+        public IActionResult CreateFill([FromBody] CreateFillRequest request)
+        {
+            try
+            {
+                var fills = _engine.ProcessCommand($"FILL {request.BuyOrderId} {request.SellOrderId} {request.Price} {request.Quantity}");
+                return Ok(new { success = true, fills = fills.Select(f => new { f.BuyOrderId, f.SellOrderId, f.Price, f.Quantity }) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpPost("price")]
+        public IActionResult SetMarketPrice([FromBody] SetPriceRequest request)
+        {
+            try
+            {
+                _engine.ProcessCommand($"PRICE {request.CurrentPrice}");
+                return Ok(new { success = true, message = $"Market price set to {request.CurrentPrice}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
+
+        [HttpPost("position/print")]
+        public IActionResult PrintPosition()
+        {
+            try
+            {
+                var tracker = _engine.GetPositionTracker();
+                var currentPrice = _engine.GetCurrentMarketPrice();
+                var unrealizedPnL = tracker.CalculateUnrealizedPnL(currentPrice);
+                var totalPnL = tracker.CalculateTotalPnL(currentPrice);
+
+                return Ok(new
+                {
+                    netQty = tracker.NetQty,
+                    avgPrice = tracker.AvgPrice,
+                    realizedPnL = tracker.RealizedPnL,
+                    unrealizedPnL = unrealizedPnL,
+                    totalPnL = totalPnL,
+                    currentPrice = currentPrice,
+                    position = tracker.NetQty == 0 ? "FLAT" : (tracker.NetQty > 0 ? "LONG" : "SHORT")
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
+    }
+
+    public class CreateFillRequest
+    {
+        public string BuyOrderId { get; set; }
+        public string SellOrderId { get; set; }
+        public decimal Price { get; set; }
+        public long Quantity { get; set; }
+    }
+
+    public class SetPriceRequest
+    {
+        public decimal CurrentPrice { get; set; }
     }
 
     public class NewOrderRequest

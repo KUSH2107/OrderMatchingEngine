@@ -1,15 +1,12 @@
 @page
 @model WebApplication1.Pages.IndexModel
-@{
-	ViewData["Title"] = "Order Matching Engine";
-}
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>@ViewData["Title"]</title>
+	<title>Order Matching Engine - Task 2</title>
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 	<style>
 		body {
@@ -47,6 +44,14 @@
 			border-radius: 5px;
 			padding: 8px 15px;
 		}
+		.btn-info {
+			border-radius: 5px;
+			padding: 8px 15px;
+		}
+		.btn-success {
+			border-radius: 5px;
+			padding: 8px 15px;
+		}
 		.table {
 			font-size: 0.95rem;
 		}
@@ -59,16 +64,6 @@
 		}
 		.sell-row {
 			background-color: rgba(244, 67, 54, 0.1);
-		}
-		.alert-success {
-			border-radius: 5px;
-		}
-		.alert-danger {
-			border-radius: 5px;
-		}
-		.form-control, .form-select {
-			border-radius: 5px;
-			border: 1px solid #ddd;
 		}
 		.badge-buy {
 			background-color: #4CAF50;
@@ -109,6 +104,50 @@
 		@@keyframes spin {
 			to { transform: rotate(360deg); }
 		}
+		.position-badge {
+			font-size: 1.1rem;
+			padding: 10px 15px;
+			border-radius: 5px;
+			display: inline-block;
+			margin: 5px 0;
+		}
+		.position-flat {
+			background-color: #999;
+			color: white;
+		}
+		.position-long {
+			background-color: #4CAF50;
+			color: white;
+		}
+		.position-short {
+			background-color: #f44336;
+			color: white;
+		}
+		.metric-box {
+			background: #f8f9fa;
+			padding: 15px;
+			border-radius: 5px;
+			margin: 10px 0;
+			border-left: 4px solid #667eea;
+		}
+		.metric-label {
+			font-size: 0.9rem;
+			color: #666;
+			font-weight: 600;
+			text-transform: uppercase;
+		}
+		.metric-value {
+			font-size: 1.5rem;
+			font-weight: bold;
+			color: #333;
+			margin-top: 5px;
+		}
+		.pnl-positive {
+			color: #4CAF50;
+		}
+		.pnl-negative {
+			color: #f44336;
+		}
 	</style>
 </head>
 <body>
@@ -120,11 +159,11 @@
 		<div class="container-fluid">
 			<!-- Header -->
 			<div class="mb-4">
-				<h1 class="section-title">📊 Order Matching Engine</h1>
+				<h1 class="section-title">📊 Order Matching Engine - Task 2 (Position &amp; PnL)</h1>
 			</div>
 
 			<div class="row">
-				<!-- Left Column: Order Management -->
+				<!-- Left Column: Order Management & Task 2 -->
 				<div class="col-lg-6">
 					<!-- New Order -->
 					<div class="card">
@@ -194,10 +233,111 @@
 							<button class="btn btn-primary w-100" onclick="modifyOrder()">Modify Order</button>
 						</div>
 					</div>
+
+					<!-- Task 2: Market Price -->
+					<div class="card">
+						<div class="card-header">
+							💹 Market Price (PRICE Command)
+						</div>
+						<div class="card-body">
+							<div class="mb-3">
+								<label class="form-label">Current Market Price</label>
+								<input type="number" class="form-control" id="marketPrice" placeholder="100.00" step="0.01" value="100.00">
+							</div>
+							<button class="btn btn-info w-100" onclick="setMarketPrice()">Update Market Price</button>
+						</div>
+					</div>
+
+					<!-- Task 2: Manual Fill -->
+					<div class="card">
+						<div class="card-header">
+							📍 Record Fill (FILL Command)
+						</div>
+						<div class="card-body">
+							<div class="row">
+								<div class="col-md-6 mb-3">
+									<label class="form-label">Buy Order ID</label>
+									<input type="text" class="form-control" id="fillBuyOrderId" placeholder="e.g., BUY001">
+								</div>
+								<div class="col-md-6 mb-3">
+									<label class="form-label">Sell Order ID</label>
+									<input type="text" class="form-control" id="fillSellOrderId" placeholder="e.g., SELL001">
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-md-6 mb-3">
+									<label class="form-label">Price</label>
+									<input type="number" class="form-control" id="fillPrice" placeholder="100.00" step="0.01">
+								</div>
+								<div class="col-md-6 mb-3">
+									<label class="form-label">Quantity</label>
+									<input type="number" class="form-control" id="fillQuantity" placeholder="100" step="1">
+								</div>
+							</div>
+							<button class="btn btn-success w-100" onclick="createFill()">Record Fill</button>
+						</div>
+					</div>
 				</div>
 
-				<!-- Right Column: Order Book Display -->
+				<!-- Right Column: Order Book & Position Display -->
 				<div class="col-lg-6">
+					<!-- Position Display (PRINT Command) -->
+					<div class="card" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+						<div class="card-header">
+							📈 Position &amp; PnL (PRINT Command)
+						</div>
+						<div class="card-body">
+							<div id="positionStatus" class="text-center mb-3">
+								<div id="positionBadge" class="position-badge position-flat">FLAT</div>
+							</div>
+							<div class="row">
+								<div class="col-md-6">
+									<div class="metric-box">
+										<div class="metric-label">Net Qty</div>
+										<div class="metric-value" id="netQtyValue">0</div>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="metric-box">
+										<div class="metric-label">Avg Price</div>
+										<div class="metric-value" id="avgPriceValue">0.00</div>
+									</div>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-md-6">
+									<div class="metric-box">
+										<div class="metric-label">Realized PnL</div>
+										<div class="metric-value" id="realizedPnLValue">0.00</div>
+									</div>
+								</div>
+								<div class="col-md-6">
+									<div class="metric-box">
+										<div class="metric-label">Unrealized PnL</div>
+										<div class="metric-value" id="unrealizedPnLValue">0.00</div>
+									</div>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-12">
+									<div class="metric-box">
+										<div class="metric-label">Total PnL</div>
+										<div class="metric-value" id="totalPnLValue">0.00</div>
+									</div>
+								</div>
+							</div>
+							<div class="row mt-3">
+								<div class="col-12">
+									<div class="metric-box">
+										<div class="metric-label">Current Market Price</div>
+										<div class="metric-value" id="currentPriceValue">100.00</div>
+									</div>
+								</div>
+							</div>
+							<button class="btn btn-primary w-100 mt-3" onclick="refreshPosition()">🔄 Refresh Position</button>
+						</div>
+					</div>
+
 					<!-- Order Book -->
 					<div class="card">
 						<div class="card-header d-flex justify-content-between align-items-center">
@@ -300,7 +440,8 @@
 	<script>
 		const API_URL = '/api/orders';
 
-		function showLoading(show = true) {
+		function showLoading(show) {
+			show = show || true;
 			const loading = document.getElementById('loading');
 			if (show) {
 				loading.classList.add('active');
@@ -309,18 +450,17 @@
 			}
 		}
 
-		function showAlert(message, type = 'success') {
+		function showAlert(message, type) {
+			type = type || 'success';
 			const alertContainer = document.getElementById('alertContainer');
 			const alertId = 'alert-' + Date.now();
-			const alert = `
-				<div class="alert alert-${type} alert-dismissible fade show" role="alert" id="${alertId}">
-					${message}
-					<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-				</div>
-			`;
+			let alert = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert" id="' + alertId + '">';
+			alert += message;
+			alert += '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+			alert += '</div>';
 			alertContainer.insertAdjacentHTML('beforeend', alert);
 
-			setTimeout(() => {
+			setTimeout(function () {
 				const element = document.getElementById(alertId);
 				if (element) {
 					element.remove();
@@ -341,7 +481,7 @@
 
 			showLoading(true);
 			try {
-				const response = await fetch(`${API_URL}/new`, {
+				const response = await fetch(API_URL + '/new', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ orderId, side, price, quantity })
@@ -349,11 +489,12 @@
 
 				const data = await response.json();
 				if (response.ok) {
-					showAlert(`Order created! ${data.fills.length} fills generated`, 'success');
+					showAlert('Order created! ' + data.fills.length + ' fills generated', 'success');
 					document.getElementById('orderId').value = '';
 					document.getElementById('price').value = '';
 					document.getElementById('quantity').value = '';
 					refreshOrderBook();
+					refreshPosition();
 				} else {
 					showAlert(data.error, 'danger');
 				}
@@ -374,7 +515,7 @@
 
 			showLoading(true);
 			try {
-				const response = await fetch(`${API_URL}/cancel`, {
+				const response = await fetch(API_URL + '/cancel', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ orderId })
@@ -385,6 +526,7 @@
 					showAlert('Order cancelled successfully', 'success');
 					document.getElementById('actionOrderId').value = '';
 					refreshOrderBook();
+					refreshPosition();
 				} else {
 					showAlert(data.error, 'danger');
 				}
@@ -407,7 +549,7 @@
 
 			showLoading(true);
 			try {
-				const response = await fetch(`${API_URL}/modify`, {
+				const response = await fetch(API_URL + '/modify', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ orderId, newPrice, newQuantity })
@@ -415,11 +557,12 @@
 
 				const data = await response.json();
 				if (response.ok) {
-					showAlert(`Order modified! ${data.fills.length} fills generated`, 'success');
+					showAlert('Order modified! ' + data.fills.length + ' fills generated', 'success');
 					document.getElementById('modifyOrderId').value = '';
 					document.getElementById('modifyPrice').value = '';
 					document.getElementById('modifyQuantity').value = '';
 					refreshOrderBook();
+					refreshPosition();
 				} else {
 					showAlert(data.error, 'danger');
 				}
@@ -430,10 +573,114 @@
 			}
 		}
 
-		async function refreshOrderBook() {
+		async function setMarketPrice() {
+			const currentPrice = parseFloat(document.getElementById('marketPrice').value);
+
+			if (!currentPrice || currentPrice <= 0) {
+				showAlert('Please enter a valid price', 'danger');
+				return;
+			}
+
 			showLoading(true);
 			try {
-				const response = await fetch(`${API_URL}/book`);
+				const response = await fetch(API_URL + '/price', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ currentPrice })
+				});
+
+				const data = await response.json();
+				if (response.ok) {
+					showAlert('Market price set to ' + currentPrice, 'success');
+					refreshPosition();
+				} else {
+					showAlert(data.error, 'danger');
+				}
+			} catch (error) {
+				showAlert(error.message, 'danger');
+			} finally {
+				showLoading(false);
+			}
+		}
+
+		async function createFill() {
+			const buyOrderId = document.getElementById('fillBuyOrderId').value;
+			const sellOrderId = document.getElementById('fillSellOrderId').value;
+			const price = parseFloat(document.getElementById('fillPrice').value);
+			const quantity = parseInt(document.getElementById('fillQuantity').value);
+
+			if (!buyOrderId || !sellOrderId || !price || !quantity) {
+				showAlert('Please fill all fields', 'danger');
+				return;
+			}
+
+			showLoading(true);
+			try {
+				const response = await fetch(API_URL + '/fill', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ buyOrderId, sellOrderId, price, quantity })
+				});
+
+				const data = await response.json();
+				if (response.ok) {
+					showAlert('Fill recorded: ' + quantity + ' at ' + price, 'success');
+					document.getElementById('fillBuyOrderId').value = '';
+					document.getElementById('fillSellOrderId').value = '';
+					document.getElementById('fillPrice').value = '';
+					document.getElementById('fillQuantity').value = '';
+					refreshOrderBook();
+					refreshPosition();
+				} else {
+					showAlert(data.error, 'danger');
+				}
+			} catch (error) {
+				showAlert(error.message, 'danger');
+			} finally {
+				showLoading(false);
+			}
+		}
+
+		async function refreshPosition() {
+			try {
+				const response = await fetch(API_URL + '/position');
+				const data = await response.json();
+
+				if (response.ok) {
+					document.getElementById('netQtyValue').textContent = data.netQty;
+					document.getElementById('avgPriceValue').textContent = data.avgPrice.toFixed(2);
+					document.getElementById('realizedPnLValue').textContent = data.realizedPnL.toFixed(2);
+					document.getElementById('unrealizedPnLValue').textContent = data.unrealizedPnL.toFixed(2);
+					document.getElementById('currentPriceValue').textContent = data.currentPrice.toFixed(2);
+
+					const totalPnL = data.realizedPnL + data.unrealizedPnL;
+					const totalPnLElement = document.getElementById('totalPnLValue');
+					totalPnLElement.textContent = totalPnL.toFixed(2);
+					totalPnLElement.className = 'metric-value ' + (totalPnL >= 0 ? 'pnl-positive' : 'pnl-negative');
+
+					const unrealizedElement = document.getElementById('unrealizedPnLValue');
+					unrealizedElement.className = 'metric-value ' + (data.unrealizedPnL >= 0 ? 'pnl-positive' : 'pnl-negative');
+
+					const positionBadge = document.getElementById('positionBadge');
+					if (data.netQty === 0) {
+						positionBadge.textContent = 'FLAT';
+						positionBadge.className = 'position-badge position-flat';
+					} else if (data.netQty > 0) {
+						positionBadge.textContent = 'LONG (' + data.netQty + ')';
+						positionBadge.className = 'position-badge position-long';
+					} else {
+						positionBadge.textContent = 'SHORT (' + Math.abs(data.netQty) + ')';
+						positionBadge.className = 'position-badge position-short';
+					}
+				}
+			} catch (error) {
+				console.error('Error refreshing position:', error.message);
+			}
+		}
+
+		async function refreshOrderBook() {
+			try {
+				const response = await fetch(API_URL + '/book');
 				const data = await response.json();
 
 				if (response.ok) {
@@ -445,8 +692,6 @@
 				}
 			} catch (error) {
 				showAlert(error.message, 'danger');
-			} finally {
-				showLoading(false);
 			}
 		}
 
@@ -457,16 +702,19 @@
 				return;
 			}
 
-			tbody.innerHTML = orders.map(order => `
-				<tr class="buy-row">
-					<td><strong>${order.orderId}</strong></td>
-					<td>${order.price.toFixed(2)}</td>
-					<td>${order.quantity}</td>
-					<td>${order.filledQuantity}</td>
-					<td>${order.remainingQuantity}</td>
-					<td>${new Date(order.timestamp).toLocaleTimeString()}</td>
-				</tr>
-			`).join('');
+			let html = '';
+			for (let i = 0; i < orders.length; i++) {
+				const order = orders[i];
+				html += '<tr class="buy-row">';
+				html += '<td><strong>' + order.orderId + '</strong></td>';
+				html += '<td>' + order.price.toFixed(2) + '</td>';
+				html += '<td>' + order.quantity + '</td>';
+				html += '<td>' + order.filledQuantity + '</td>';
+				html += '<td>' + order.remainingQuantity + '</td>';
+				html += '<td>' + new Date(order.timestamp).toLocaleTimeString() + '</td>';
+				html += '</tr>';
+			}
+			tbody.innerHTML = html;
 		}
 
 		function displaySellOrders(orders) {
@@ -476,16 +724,19 @@
 				return;
 			}
 
-			tbody.innerHTML = orders.map(order => `
-				<tr class="sell-row">
-					<td><strong>${order.orderId}</strong></td>
-					<td>${order.price.toFixed(2)}</td>
-					<td>${order.quantity}</td>
-					<td>${order.filledQuantity}</td>
-					<td>${order.remainingQuantity}</td>
-					<td>${new Date(order.timestamp).toLocaleTimeString()}</td>
-				</tr>
-			`).join('');
+			let html = '';
+			for (let i = 0; i < orders.length; i++) {
+				const order = orders[i];
+				html += '<tr class="sell-row">';
+				html += '<td><strong>' + order.orderId + '</strong></td>';
+				html += '<td>' + order.price.toFixed(2) + '</td>';
+				html += '<td>' + order.quantity + '</td>';
+				html += '<td>' + order.filledQuantity + '</td>';
+				html += '<td>' + order.remainingQuantity + '</td>';
+				html += '<td>' + new Date(order.timestamp).toLocaleTimeString() + '</td>';
+				html += '</tr>';
+			}
+			tbody.innerHTML = html;
 		}
 
 		function displayFills(fills) {
@@ -495,22 +746,31 @@
 				return;
 			}
 
-			tbody.innerHTML = fills.map(fill => `
-				<tr>
-					<td><span class="badge badge-buy">${fill.buyOrderId}</span></td>
-					<td><span class="badge badge-sell">${fill.sellOrderId}</span></td>
-					<td>${fill.price.toFixed(2)}</td>
-					<td>${fill.quantity}</td>
-					<td>${new Date(fill.fillTime).toLocaleTimeString()}</td>
-				</tr>
-			`).join('');
+			let html = '';
+			for (let i = 0; i < fills.length; i++) {
+				const fill = fills[i];
+				html += '<tr>';
+				html += '<td><span class="badge badge-buy">' + fill.buyOrderId + '</span></td>';
+				html += '<td><span class="badge badge-sell">' + fill.sellOrderId + '</span></td>';
+				html += '<td>' + fill.price.toFixed(2) + '</td>';
+				html += '<td>' + fill.quantity + '</td>';
+				html += '<td>' + new Date(fill.fillTime).toLocaleTimeString() + '</td>';
+				html += '</tr>';
+			}
+			tbody.innerHTML = html;
 		}
 
-		// Load initial order book on page load
-		document.addEventListener('DOMContentLoaded', refreshOrderBook);
+		// Load initial data on page load
+		document.addEventListener('DOMContentLoaded', function () {
+			refreshOrderBook();
+			refreshPosition();
+		});
 
 		// Auto-refresh every 3 seconds
-		setInterval(refreshOrderBook, 3000);
+		setInterval(function () {
+			refreshOrderBook();
+			refreshPosition();
+		}, 3000);
 	</script>
 </body>
 </html>

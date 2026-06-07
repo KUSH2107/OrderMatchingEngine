@@ -1,6 +1,38 @@
 # Order Matching & Position/PnL Engine
 
-A high-performance, in-memory order matching engine with position tracking and P&L calculation. Built with .NET 10 and comprehensive unit tests.
+A high-performance, in-memory order matching engine with position tracking and P&L calculation. Built with .NET 10, Razor Pages UI, and comprehensive unit tests.
+
+## Features
+
+- **Order Matching Engine** - In-memory order book with price-time priority matching
+- **Position & PnL Tracking** - Real-time position management and profit/loss calculation
+- **Web UI** - Interactive Razor Pages interface for all operations
+- **REST API** - Complete REST API for programmatic access
+- **Comprehensive Tests** - 43 unit tests with full coverage
+
+## Quick Start
+
+### Running the Application
+
+```bash
+cd "C:\Users\HP\Desktop\DotNet Projects\WebApplication1"
+dotnet run
+```
+
+Navigate to:
+- **Order Book UI**: https://localhost:7000 (or http://localhost:5000)
+- **Analytics Dashboard**: https://localhost:7000/analytics
+
+### Running Tests
+
+```bash
+dotnet test
+```
+
+All 43 tests should pass:
+- 16 OrderBook tests
+- 14 PositionTracker tests
+- 13 OrderMatchingEngine tests
 
 ## Overview
 
@@ -114,24 +146,194 @@ PRINT              # Print entire order book
 PRINT <OrderId>    # Print specific order
 ```
 
-## Usage Examples
+## Web User Interface
 
-### Basic Order Matching
+### Main Order Book Page (/)
 
-```csharp
-var engine = new OrderMatchingEngine();
-var orderBook = engine.GetOrderBook();
+![Order Book Interface](README_files/orderbook.png)
 
-// Add sell orders
-engine.ProcessCommand("NEW SELL1 SELL 100.00 10");
-engine.ProcessCommand("NEW SELL2 SELL 100.50 20");
+**Left Column - Order Management:**
+- **Create New Order** - Add BUY/SELL orders to the book
+- **Order Actions** - Cancel existing orders
+- **Modify Order** - Update price and quantity
 
-// Add buy order that matches
-var fills = engine.ProcessCommand("NEW BUY1 BUY 100.50 15");
-// Returns 1 fill: 10 @ 100.00 from SELL1, then 5 @ 100.50 from SELL2
+**Right Column - Order Display:**
+- **Buy Orders Tab** - All BUY orders sorted by priority
+- **Sell Orders Tab** - All SELL orders sorted by priority
+- **Fills Tab** - All executed trades with fill prices
+
+**Features:**
+- Real-time order book updates (every 3 seconds)
+- Color-coded order display (green=BUY, red=SELL)
+- Automatic fill notifications
+- Load indicators during operations
+
+### Analytics Dashboard (/analytics)
+
+![Analytics Dashboard](README_files/analytics.png)
+
+**Statistics Display:**
+- **Net Position** - Current position quantity
+- **Avg Price** - Average entry price
+- **Realized PnL** - Profits/losses from closed positions
+- **Unrealized PnL** - Current P&L from open positions
+- **Total PnL** - Combined realized + unrealized P&L
+- **Return %** - Percentage return on position
+
+**Position History:**
+- Complete fill history table
+- Trade value calculations
+- Timestamps for each trade
+
+**Charts:**
+- Cumulative trade value graph
+- Real-time P&L tracking
+
+## REST API
+
+### Endpoints
+
+#### Create Order
+```http
+POST /api/orders/new
+Content-Type: application/json
+
+{
+  "orderId": "ORD001",
+  "side": "BUY",
+  "price": 100.50,
+  "quantity": 1000
+}
+
+Response:
+{
+  "success": true,
+  "fills": [
+	{
+	  "buyOrderId": "BUY1",
+	  "sellOrderId": "SELL1",
+	  "price": 100.50,
+	  "quantity": 500
+	}
+  ]
+}
 ```
 
-### Position and PnL Tracking
+#### Cancel Order
+```http
+POST /api/orders/cancel
+Content-Type: application/json
+
+{
+  "orderId": "ORD001"
+}
+
+Response:
+{
+  "success": true
+}
+```
+
+#### Modify Order
+```http
+POST /api/orders/modify
+Content-Type: application/json
+
+{
+  "orderId": "ORD001",
+  "newPrice": 101.00,
+  "newQuantity": 500
+}
+
+Response:
+{
+  "success": true,
+  "fills": [...]
+}
+```
+
+#### Get Order Book
+```http
+GET /api/orders/book
+
+Response:
+{
+  "buyOrders": [
+	{
+	  "orderId": "BUY1",
+	  "side": "BUY",
+	  "price": 100.50,
+	  "quantity": 1000,
+	  "filledQuantity": 500,
+	  "remainingQuantity": 500,
+	  "timestamp": "2026-06-07T10:30:00Z"
+	}
+  ],
+  "sellOrders": [...],
+  "fills": [...]
+}
+```
+
+#### Get Specific Order
+```http
+GET /api/orders/order/{orderId}
+
+Response:
+{
+  "orderId": "BUY1",
+  "side": "BUY",
+  "price": 100.50,
+  "quantity": 1000,
+  "filledQuantity": 500,
+  "remainingQuantity": 500,
+  "timestamp": "2026-06-07T10:30:00Z"
+}
+```
+
+## Usage Examples
+
+### Web UI Workflow
+
+1. **Create Orders:**
+   - Navigate to Order Book page
+   - Enter Order ID, select BUY/SELL, enter Price and Quantity
+   - Click "Create Order"
+   - Watch for automatic fills
+
+2. **Monitor Position:**
+   - Go to Analytics page
+   - View current Net Position and Avg Price
+   - Enter Market Price to calculate P&L
+
+3. **Modify Orders:**
+   - Use "Modify Order" panel
+   - Enter new price and quantity
+   - View any resulting fills
+
+### Programmatic Access
+
+```csharp
+using WebApplication1.Services;
+using WebApplication1.Domain;
+
+var engine = new OrderMatchingEngine();
+
+// Create orders
+var fills = engine.ProcessCommand("NEW SELL1 SELL 100.00 10");
+var fills = engine.ProcessCommand("NEW BUY1 BUY 100.00 15");
+// BUY1 partially filled: 10 units
+
+// Modify order
+var fills = engine.ProcessCommand("MODIFY BUY1 100 20");
+
+// Get order book
+var book = engine.GetOrderBook();
+var buyOrders = book.GetBuyOrders();
+var sellOrders = book.GetSellOrders();
+var allFills = book.Fills;
+```
+
+### Position Tracking
 
 ```csharp
 var tracker = new PositionTracker();
@@ -195,7 +397,7 @@ Sorted as: 95 (t1), 95 (t2), 100 (t1), 100 (t2)
 
 Comprehensive unit test coverage includes:
 
-### OrderBook Tests (`Tests/OrderBookTests.cs`)
+### OrderBook Tests (16 tests)
 - ✓ Add orders (buy/sell)
 - ✓ Order matching (full/partial fills)
 - ✓ Price-time priority enforcement
@@ -204,7 +406,7 @@ Comprehensive unit test coverage includes:
 - ✓ Multiple matches
 - ✓ Duplicate order detection
 
-### PositionTracker Tests (`Tests/PositionTrackerTests.cs`)
+### PositionTracker Tests (14 tests)
 - ✓ Opening positions (long/short)
 - ✓ Adding to positions
 - ✓ Closing positions with P&L realization
@@ -213,7 +415,7 @@ Comprehensive unit test coverage includes:
 - ✓ Total P&L calculation
 - ✓ Duplicate fill detection
 
-### Command Engine Tests (`Tests/OrderMatchingEngineTests.cs`)
+### Command Engine Tests (13 tests)
 - ✓ Command parsing
 - ✓ NEW command
 - ✓ CANCEL command
@@ -224,6 +426,7 @@ Comprehensive unit test coverage includes:
 **Run tests:**
 ```bash
 dotnet test
+# All 43 tests pass
 ```
 
 ## Performance Characteristics
@@ -270,26 +473,38 @@ await foreach (var command in channel.Reader.ReadAllAsync())
 ## Technology Stack
 
 - **.NET 10** - Latest framework
+- **ASP.NET Core** - Web framework
+- **Razor Pages** - UI framework
 - **xUnit** - Unit testing framework
+- **Bootstrap 5** - UI styling
+- **Chart.js** - Real-time charting
 - **C# 13** - Language features
 
 ## Project Structure
 
 ```
 WebApplication1/
+├── Controllers/
+│   └── OrdersController.cs      # REST API endpoints
 ├── Domain/
-│   ├── Order.cs              # Order model
-│   ├── OrderSide.cs          # BUY/SELL enum
-│   ├── Fill.cs               # Fill/trade result
-│   ├── OrderBook.cs          # Main matching engine
-│   └── PositionTracker.cs    # PnL tracking
+│   ├── Order.cs                 # Order model
+│   ├── OrderSide.cs             # BUY/SELL enum
+│   ├── Fill.cs                  # Fill/trade result
+│   ├── OrderBook.cs             # Main matching engine
+│   └── PositionTracker.cs       # PnL tracking
+├── Pages/
+│   ├── Index.cshtml             # Order book UI
+│   ├── Index.cshtml.cs          # Order book code-behind
+│   ├── Analytics.cshtml         # Analytics dashboard
+│   └── Analytics.cshtml.cs      # Analytics code-behind
 ├── Services/
-│   └── OrderMatchingEngine.cs # Command processor
+│   └── OrderMatchingEngine.cs   # Command processor
 ├── Tests/
-│   ├── OrderBookTests.cs         # Order book tests
-│   ├── PositionTrackerTests.cs   # Position tests
+│   ├── OrderBookTests.cs        # Order book tests
+│   ├── PositionTrackerTests.cs  # Position tests
 │   └── OrderMatchingEngineTests.cs # Command tests
-└── README.md                 # This file
+├── Program.cs                   # Application startup
+└── README.md                    # This file
 ```
 
 ## Key Design Decisions
@@ -298,6 +513,8 @@ WebApplication1/
 2. **Immutable Timestamp**: Order timestamps are set at creation and preserved during modifications to maintain queue fairness
 3. **Fill-based Processing**: Orders are matched immediately upon insertion; fills are generated and returned
 4. **Separate Position Tracking**: Position logic is decoupled from matching engine for flexibility
+5. **Web UI**: Interactive Razor Pages interface for ease of use
+6. **REST API**: Programmatic access to all functionality
 
 ## Error Handling
 
@@ -315,6 +532,8 @@ WebApplication1/
 4. **Market data**: Track bid-ask spread, VWAP, market depth
 5. **Concurrency**: Thread-safe concurrent order processing
 6. **Performance metrics**: Latency tracking, throughput measurement
+7. **Websocket support**: Real-time updates without polling
+8. **Database persistence**: Store orders and trades in database
 
 ## References
 
@@ -325,3 +544,8 @@ WebApplication1/
 ## License
 
 MIT
+
+## Author
+
+GitHub Copilot - AI Programming Assistant
+
