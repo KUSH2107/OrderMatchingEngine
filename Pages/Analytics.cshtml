@@ -1,0 +1,370 @@
+@page "/analytics"
+@model WebApplication1.Pages.AnalyticsModel
+@{
+	ViewData["Title"] = "Position & PnL Analytics";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>@ViewData["Title"]</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+	<style>
+		body {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+		}
+		.main-container {
+			padding: 20px;
+		}
+		.card {
+			border: none;
+			border-radius: 10px;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+			margin-bottom: 20px;
+		}
+		.card-header {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			border-radius: 10px 10px 0 0 !important;
+			font-weight: 600;
+		}
+		.stat-card {
+			background: white;
+			border-radius: 10px;
+			padding: 20px;
+			text-align: center;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+		}
+		.stat-value {
+			font-size: 2rem;
+			font-weight: 700;
+			margin: 10px 0;
+		}
+		.stat-label {
+			color: #666;
+			font-size: 0.9rem;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+		.positive {
+			color: #4CAF50;
+		}
+		.negative {
+			color: #f44336;
+		}
+		.neutral {
+			color: #2196F3;
+		}
+		.section-title {
+			color: white;
+			margin-bottom: 20px;
+			font-weight: 700;
+		}
+		.table {
+			font-size: 0.95rem;
+		}
+		.table thead {
+			background: #f8f9fa;
+			font-weight: 600;
+		}
+		.btn-primary {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			border: none;
+			border-radius: 5px;
+		}
+		.chart-container {
+			position: relative;
+			height: 300px;
+			margin-top: 20px;
+		}
+		.nav-link {
+			color: white !important;
+			border-bottom: 2px solid transparent;
+		}
+		.nav-link.active {
+			background: rgba(255, 255, 255, 0.2);
+			border-bottom-color: white;
+		}
+	</style>
+</head>
+<body>
+	<div class="main-container">
+		<div class="container-fluid">
+			<!-- Header -->
+			<div class="mb-4">
+				<h1 class="section-title">📈 Position & PnL Analytics</h1>
+			</div>
+
+			<!-- Navigation -->
+			<div class="card mb-4">
+				<div class="card-body p-0">
+					<nav class="nav">
+						<a class="nav-link p-3" href="/">📊 Order Book</a>
+						<a class="nav-link p-3 active" href="/analytics">📈 Analytics</a>
+					</nav>
+				</div>
+			</div>
+
+			<!-- Stats Row -->
+			<div class="row mb-4">
+				<div class="col-md-3 mb-3">
+					<div class="stat-card">
+						<div class="stat-label">Net Position</div>
+						<div class="stat-value neutral" id="netQty">-</div>
+						<small class="text-muted">units</small>
+					</div>
+				</div>
+				<div class="col-md-3 mb-3">
+					<div class="stat-card">
+						<div class="stat-label">Avg Price</div>
+						<div class="stat-value neutral" id="avgPrice">-</div>
+						<small class="text-muted">per unit</small>
+					</div>
+				</div>
+				<div class="col-md-3 mb-3">
+					<div class="stat-card">
+						<div class="stat-label">Realized PnL</div>
+						<div class="stat-value" id="realizedPnL">-</div>
+						<small class="text-muted">realized</small>
+					</div>
+				</div>
+				<div class="col-md-3 mb-3">
+					<div class="stat-card">
+						<div class="stat-label">Market Price</div>
+						<div class="form-group mb-0">
+							<input type="number" class="form-control text-center" id="marketPrice" placeholder="Enter price" step="0.01">
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="row">
+				<!-- Unrealized PnL -->
+				<div class="col-md-6 mb-4">
+					<div class="stat-card">
+						<div class="stat-label">Unrealized PnL</div>
+						<div class="stat-value" id="unrealizedPnL">-</div>
+						<button class="btn btn-primary btn-sm mt-2" onclick="calculatePnL()">Calculate</button>
+					</div>
+				</div>
+
+				<!-- Total PnL -->
+				<div class="col-md-6 mb-4">
+					<div class="stat-card">
+						<div class="stat-label">Total PnL</div>
+						<div class="stat-value" id="totalPnL">-</div>
+						<small class="text-muted" id="pnlPercentage"></small>
+					</div>
+				</div>
+			</div>
+
+			<!-- Position History -->
+			<div class="card">
+				<div class="card-header">
+					📋 Position & Fills History
+				</div>
+				<div class="card-body">
+					<div class="table-responsive">
+						<table class="table table-hover">
+							<thead>
+								<tr>
+									<th>Buy Order</th>
+									<th>Sell Order</th>
+									<th>Fill Price</th>
+									<th>Quantity</th>
+									<th>Trade Value</th>
+									<th>Time</th>
+								</tr>
+							</thead>
+							<tbody id="fillsHistoryTable">
+								<tr>
+									<td colspan="6" class="text-center text-muted">No fills yet</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+
+			<!-- PnL Chart -->
+			<div class="card mt-4">
+				<div class="card-header">
+					📊 PnL Analysis
+				</div>
+				<div class="card-body">
+					<div class="chart-container">
+						<canvas id="pnlChart"></canvas>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+	<script>
+		const API_URL = '/api/orders';
+		let pnlChart = null;
+
+		function formatCurrency(value) {
+			return new Intl.NumberFormat('en-US', {
+				style: 'currency',
+				currency: 'USD'
+			}).format(value);
+		}
+
+		function getColorClass(value) {
+			if (value > 0) return 'positive';
+			if (value < 0) return 'negative';
+			return 'neutral';
+		}
+
+		async function loadPositionData() {
+			try {
+				const response = await fetch(`${API_URL}/book`);
+				const data = await response.json();
+
+				if (response.ok) {
+					const fills = data.fills;
+
+					// Calculate position
+					let netQty = 0;
+					let totalCost = 0;
+					fills.forEach(fill => {
+						netQty += fill.quantity;
+						totalCost += fill.price * fill.quantity;
+					});
+
+					const avgPrice = fills.length > 0 ? totalCost / (netQty || 1) : 0;
+
+					document.getElementById('netQty').textContent = netQty;
+					document.getElementById('avgPrice').textContent = avgPrice.toFixed(2);
+
+					// Calculate realized PnL (simplified)
+					let realizedPnL = 0;
+					fills.forEach((fill, index) => {
+						if (index > 0) {
+							realizedPnL += (fill.price - avgPrice) * fill.quantity;
+						}
+					});
+
+					const realizedPnLElement = document.getElementById('realizedPnL');
+					realizedPnLElement.textContent = formatCurrency(realizedPnL);
+					realizedPnLElement.className = 'stat-value ' + getColorClass(realizedPnL);
+
+					displayFillsHistory(fills);
+					updateChart(fills);
+				}
+			} catch (error) {
+				console.error('Error loading position data:', error);
+			}
+		}
+
+		function displayFillsHistory(fills) {
+			const tbody = document.getElementById('fillsHistoryTable');
+			if (fills.length === 0) {
+				tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No fills yet</td></tr>';
+				return;
+			}
+
+			tbody.innerHTML = fills.map(fill => {
+				const tradeValue = fill.price * fill.quantity;
+				return `
+					<tr>
+						<td><span class="badge bg-success">${fill.buyOrderId}</span></td>
+						<td><span class="badge bg-danger">${fill.sellOrderId}</span></td>
+						<td>${fill.price.toFixed(2)}</td>
+						<td>${fill.quantity}</td>
+						<td>${formatCurrency(tradeValue)}</td>
+						<td>${new Date(fill.fillTime).toLocaleString()}</td>
+					</tr>
+				`;
+			}).join('');
+		}
+
+		function calculatePnL() {
+			const marketPrice = parseFloat(document.getElementById('marketPrice').value);
+			const netQty = parseInt(document.getElementById('netQty').textContent);
+			const avgPrice = parseFloat(document.getElementById('avgPrice').textContent);
+
+			if (!marketPrice || marketPrice <= 0) {
+				alert('Please enter a valid market price');
+				return;
+			}
+
+			const unrealizedPnL = (marketPrice - avgPrice) * netQty;
+			const realizedPnL = parseFloat(document.getElementById('realizedPnL').textContent.replace(/[^0-9.-]/g, ''));
+			const totalPnL = realizedPnL + unrealizedPnL;
+			const pnlPercentage = ((totalPnL / (avgPrice * Math.abs(netQty))) * 100).toFixed(2);
+
+			const unrealizedElement = document.getElementById('unrealizedPnL');
+			unrealizedElement.textContent = formatCurrency(unrealizedPnL);
+			unrealizedElement.className = 'stat-value ' + getColorClass(unrealizedPnL);
+
+			const totalElement = document.getElementById('totalPnL');
+			totalElement.textContent = formatCurrency(totalPnL);
+			totalElement.className = 'stat-value ' + getColorClass(totalPnL);
+
+			document.getElementById('pnlPercentage').textContent = `(${pnlPercentage}% return)`;
+		}
+
+		function updateChart(fills) {
+			const ctx = document.getElementById('pnlChart').getContext('2d');
+
+			let cumulativePnL = 0;
+			const labels = [];
+			const data = [];
+
+			fills.forEach((fill, index) => {
+				cumulativePnL += fill.price * fill.quantity;
+				labels.push(`Trade ${index + 1}`);
+				data.push(cumulativePnL);
+			});
+
+			if (pnlChart) {
+				pnlChart.destroy();
+			}
+
+			pnlChart = new Chart(ctx, {
+				type: 'line',
+				data: {
+					labels: labels,
+					datasets: [{
+						label: 'Cumulative Trade Value',
+						data: data,
+						borderColor: '#667eea',
+						backgroundColor: 'rgba(102, 126, 234, 0.1)',
+						borderWidth: 2,
+						fill: true,
+						tension: 0.4
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: {
+							display: true,
+							position: 'top'
+						}
+					},
+					scales: {
+						y: {
+							beginAtZero: true
+						}
+					}
+				}
+			});
+		}
+
+		document.addEventListener('DOMContentLoaded', () => {
+			loadPositionData();
+			setInterval(loadPositionData, 3000);
+		});
+	</script>
+</body>
+</html>
